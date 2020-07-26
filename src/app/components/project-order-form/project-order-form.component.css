@@ -1,0 +1,51 @@
+table {
+  width: 100%;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+}
+
+.filters {
+  margin: 4px;
+  width: 80%;
+}
+
+.filter-row {
+  margin: 4px;
+  width: 100%;
+}
+
+.filter-row-field {
+  width: 100%;
+}
+
+.filter-service-field {
+  width: 25%;
+  margin: 4px;
+}
+
+.filter-type-field {
+  width: 25%;
+  margin: 4px;
+}
+
+.filter-size-field {
+  width: 20%;
+  margin: 4px;
+}
+
+.filter-text-field {
+  width: 70%;
+  margin: 4px;
+}
+
+.download-buttons {
+  font-size: 0.5rem;
+  margin: 10px;
+}
+
+.download-button-spacer {
+  width: 5rem;
+}

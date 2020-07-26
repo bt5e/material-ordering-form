@@ -1,8 +1,10 @@
-<h2>Projects</h2>
-<ul class="projects">
-  <li *ngFor="let project of projects">
-    <a routerLink="/project/{{project.id}}">
-      <span class="badge">{{project.id}}</span> {{project.name}}
+<div class="center">
+  <h2>Projects</h2>
+</div>
+<div class="center">
+  <ul class="projects">
+    <a *ngFor="let project of projects" routerLink="/project/{{project.id}}">
+      <li><span class="badge">{{project.id}}</span> {{project.name}}</li>
     </a>
-  </li>
-</ul>
+  </ul>
+</div>

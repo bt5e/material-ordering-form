@@ -1,7 +1,19 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, OnInit, ViewChild} from '@angular/core';
 import {Project} from "../../models/project";
 import {ActivatedRoute} from "@angular/router";
 import {ProjectService} from "../../services/project.service";
+import {FormControl} from "@angular/forms";
+import {Observable} from "rxjs";
+import {HttpClient} from "@angular/common/http";
+import {MatPaginator} from "@angular/material/paginator";
+import {MatTableDataSource} from "@angular/material/table";
+import {MatDialog} from "@angular/material/dialog";
+import {DialogAddItemComponent} from "../dialog-add-item/dialog-add-item.component";
+import {MatSelect} from "@angular/material/select";
+import {map, startWith} from "rxjs/operators";
+import {BreakpointObserver, Breakpoints} from '@angular/cdk/layout';
+import {DownloadService} from "../../services/download.service";
+import {MessageService} from "../../services/message.service";
 
 @Component({
   selector: 'app-project-order-form',
@@ -10,19 +22,211 @@ import {ProjectService} from "../../services/project.service";
 })
 export class ProjectOrderFormComponent implements OnInit {
   project: Project;
+  materialTableColumnsAll: string[] = ['service', 'costCode', 'type', 'size', 'extendedSize', 'description', 'manufacturer', 'modelSerialPartNumber', 'vendor', 'actions'];
+  materialTableColumnsSmallDevices: string[] = ['consolidatedColumn'];
+  materialTableColumns: string[] = this.materialTableColumnsAll;
+  materialOrderTableColumnsAll: string[] = ['quantity', 'unitOfMeasure', 'costCode', 'type', 'size', 'extendedSize', 'description', 'manufacturer', 'modelSerialPartNumber', 'vendor', 'actions'];
+  materialOrderTableColumnsSmallDevices: string[] = ['consolidatedColumn'];
+  materialOrderTableColumns: string[] = this.materialOrderTableColumnsAll;
+
+  serviceFilterControl = new FormControl();
+  serviceOptions: string[];
+  filteredServiceOptions: Observable<string[]>;
+
+  typeFilterControl = new FormControl();
+  typeOptions: string[];
+  filteredTypeOptions: Observable<string[]>;
+
+  sizeFilterControl = new FormControl();
+  sizeOptions: string[]
+  filteredSizeOptions: Observable<string[]>;
+
+  materialList: MatTableDataSource<any>;
+  selectedItemsDataSource = new MatTableDataSource<any>();
+
+  filterValues = {
+    service: '',
+    type: '',
+    size: '',
+    text: '',
+  };
+  @ViewChild('serviceFilterSelect', {static: true}) serviceFilterSelect: MatSelect;
+
+  @ViewChild(MatPaginator, {static: true}) paginator: MatPaginator;
 
   constructor(
     private route: ActivatedRoute,
-    private projectService: ProjectService) {
+    private projectService: ProjectService,
+    private httpClient: HttpClient,
+    private breakpointObserver: BreakpointObserver,
+    private downloadService: DownloadService,
+    private dialog: MatDialog,
+    private messageService: MessageService) {
+    breakpointObserver.observe([
+      Breakpoints.XSmall,
+      Breakpoints.Small,
+    ]).subscribe(result => {
+        if (result.matches) this.activateHandsetPortraitLayout()
+      }
+    );
   }
 
   ngOnInit() {
-    this.getProject();
+    this.getProject().subscribe(project => {
+        this.project = project;
+        this.loadData(project).subscribe(
+          data => this.populateTableDataSource(data),
+          error => this.messageService.add(error));
+      },
+      error => this.messageService.add(error));
   }
 
-  getProject(): void {
+  private getProject(): Observable<Project> {
     const id = this.route.snapshot.paramMap.get('id');
-    this.projectService.getProject(id)
-      .subscribe(project => this.project = project);
+    return this.projectService.getProject(id);
+  }
+
+  private loadData(project: Project): Observable<any> {
+    return this.httpClient.get("./assets/" + project.id + ".json");
+  }
+
+  private populateTableDataSource(data: []) {
+    this.materialList = new MatTableDataSource(data);
+    this.materialList.paginator = this.paginator;
+    this.materialList.filterPredicate = this.tableFilter();
+    this.updateFilterDropDownSelections(data);
+  }
+
+  private updateFilterDropDownSelections(data: any[]) {
+    this.sizeOptions = this.createDropDownSelectionsFromRaw(data.map(value => value['size']));
+    this.filteredSizeOptions = this.sizeFilterControl.valueChanges
+      .pipe(
+        startWith(''),
+        map(value => this.sizeOptions.filter(option => option.toLowerCase().includes(value.toLowerCase())))
+      );
+
+    this.typeOptions = this.createDropDownSelectionsFromRaw(data.map(value => value['type']));
+    this.filteredTypeOptions = this.typeFilterControl.valueChanges
+      .pipe(
+        startWith(''),
+        map(value => this.typeOptions.filter(option => option.toLowerCase().includes(value.toLowerCase())))
+      );
+
+    this.serviceOptions = this.createDropDownSelectionsFromRaw(data.map(value => value['service']));
+    this.filteredServiceOptions = this.serviceFilterControl.valueChanges
+      .pipe(
+        startWith(''),
+        map(value => this.serviceOptions.filter(option => option.toLowerCase().includes(value.toLowerCase())))
+      );
+  }
+
+  private createDropDownSelectionsFromRaw(rawList: any[]): any[] {
+    let dropDownSelections = rawList
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .filter(value => value !== '');
+    dropDownSelections.push(''); // blank selection
+    dropDownSelections.sort();
+    return dropDownSelections;
+  }
+
+  tableFilter(): (data: any, filter: string) => boolean {
+    let filterFunction = function (data, filter): boolean {
+      let searchTerms = JSON.parse(filter);
+
+      let searchTextTokens = searchTerms.text ? searchTerms.text.toString().split(' ') : [];
+
+      function isSearchTextTokensInFields(fieldValues: any[]): boolean {
+        for (let token of searchTextTokens) {
+          if (fieldValues.map(value => value.toString().toLowerCase()).join(' ').indexOf(token) === -1)
+            return false;
+        }
+        return true;
+      }
+
+      return (searchTerms.service ? data.service === searchTerms.service : true) &&
+        (searchTerms.type ? data.type === searchTerms.type : true) &&
+        (searchTerms.size ? data.size === searchTerms.size : true) &&
+        (searchTerms.text ? (
+            isSearchTextTokensInFields([
+              data.costCode,
+              data.type,
+              data.extendedSize,
+              data.description,
+              data.manufacturer,
+              data.modelSerialPartNumber,
+              data.vendor])) : true
+        );
+    }
+    return filterFunction;
+  }
+
+  resetFilters() {
+    this.filterValues.service = '';
+    this.filterValues.size = '';
+    this.filterValues.text = '';
+    this.materialList.filter = null;
+    this.updateFilterDropDownSelections(this.materialList.filteredData);
+  }
+
+  applyTextFilter(filterValue: string) {
+    this.filterValues.text = filterValue.trim().toLowerCase();
+    this.materialList.filter = JSON.stringify(this.filterValues);
+    this.updateFilterDropDownSelections(this.materialList.filteredData);
+  }
+
+  applyTypeFilter(filterValue: string) {
+    this.filterValues.type = filterValue.trim();
+    this.materialList.filter = JSON.stringify(this.filterValues);
+    this.updateFilterDropDownSelections(this.materialList.filteredData);
+  }
+
+  applyServiceFilter(filterValue: string) {
+    this.filterValues.service = filterValue.trim();
+    this.materialList.filter = JSON.stringify(this.filterValues);
+    this.updateFilterDropDownSelections(this.materialList.filteredData);
+  }
+
+  applySizeFilter(filterValue: string) {
+    this.filterValues.size = filterValue.trim();
+    this.materialList.filter = JSON.stringify(this.filterValues);
+    this.updateFilterDropDownSelections(this.materialList.filteredData);
+  }
+
+  addItem(element: any) {
+    const dialogRef = this.dialog.open(DialogAddItemComponent, {
+      width: '250px',
+      data: element
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        const newElement = {...element};
+        newElement.quantity = result.quantity;
+        newElement.unitOfMeasure = result.unitOfMeasure;
+        this.selectedItemsDataSource.data.push(newElement);
+        this.selectedItemsDataSource._updateChangeSubscription();
+      }
+    });
+  }
+
+  removeItem(element: any) {
+    const index = this.selectedItemsDataSource.data.indexOf(element, 0);
+    if (index > -1) {
+      this.selectedItemsDataSource.data.splice(index, 1);
+    }
+    this.selectedItemsDataSource._updateChangeSubscription();
+  }
+
+  downloadEmail() {
+    this.downloadService.downloadEmail(this.selectedItemsDataSource.data);
+  }
+
+  downloadExcel() {
+    this.downloadService.downloadExcel(this.selectedItemsDataSource.data);
+  }
+
+  private activateHandsetPortraitLayout() {
+    this.materialTableColumns = this.materialTableColumnsSmallDevices;
+    this.materialOrderTableColumns = this.materialOrderTableColumnsSmallDevices;
   }
 }

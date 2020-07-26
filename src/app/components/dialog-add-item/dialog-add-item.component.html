@@ -1,0 +1,21 @@
+<p>{{data.costCode}}</p>
+<p>{{data.type}}</p>
+<p>{{data.size}}</p>
+<p>{{data.extendedSize}}</p>
+<p>{{data.description}}</p>
+<p>{{data.manufacturer}}</p>
+
+<form (submit)="onSubmit()">
+  <div mat-dialog-content [formGroup]="form" (submit)="onSubmit()">
+    <mat-form-field>
+      <input type="number" formControlName="quantity" cdkFocusInitial matInput placeholder="Quantity" required>
+    </mat-form-field>
+    <mat-form-field>
+      <input formControlName="unitOfMeasure" cdkFocusInitial matInput placeholder="Unit of Measure">
+    </mat-form-field>
+  </div>
+</form>
+<div mat-dialog-actions align="end">
+  <button mat-raised-button color="accent" mat-dialog-close>Cancel</button>
+  <button mat-raised-button color="primary" (click)="onSubmit()" type="submit">Save</button>
+</div>
