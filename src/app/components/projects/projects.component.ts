@@ -1,6 +1,7 @@
 import {Component, OnInit} from '@angular/core';
 import {ProjectService} from '../../services/project.service';
 import {Project} from "../../models/project";
+import {MessageService} from "../../services/message.service";
 
 @Component({
   selector: 'app-projects',
@@ -11,7 +12,10 @@ export class ProjectsComponent implements OnInit {
   projects: Project[];
   selectedProject: Project;
 
-  constructor(private projectService: ProjectService) {
+  constructor(
+    private projectService: ProjectService,
+    private messageService: MessageService
+  ) {
   }
 
   ngOnInit() {
@@ -25,5 +29,6 @@ export class ProjectsComponent implements OnInit {
 
   onSelect(project: Project): void {
     this.selectedProject = project;
+    this.messageService.add(`ProjectsComponent: Selected project id=${project.id}`);
   }
 }

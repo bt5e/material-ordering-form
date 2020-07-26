@@ -20,14 +20,6 @@
   background-color: #DDD;
   left: .1em;
 }
-.projects li.selected {
-  background-color: #CFD8DC;
-  color: white;
-}
-.projects li.selected:hover {
-  background-color: #BBD8DC;
-  color: white;
-}
 .projects .badge {
   display: inline-block;
   font-size: small;
